@@ -44,14 +44,14 @@ impl Manager {
         // Initial check
         self.check_all_accounts(ctx.clone()).await;
 
-        let check_interval = Duration::from_secs(self.cfg.settings.check_interval_seconds);
-        let mut ticker = time::interval(check_interval);
-        ticker.tick().await; // consume first
-
         let mut ctx_watch = ctx;
         loop {
+            let base_secs = self.cfg.settings.check_interval_seconds.max(5) as f64;
+            let jitter = 0.85 + rand::random::<f64>() * 0.3;
+            let sleep_dur = Duration::from_secs_f64((base_secs * jitter).max(5.0));
+
             tokio::select! {
-                _ = ticker.tick() => {
+                _ = tokio::time::sleep(sleep_dur) => {
                     self.check_all_accounts(ctx_watch.clone()).await;
                 }
                 _ = ctx_watch.changed() => {
